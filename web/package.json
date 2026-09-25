@@ -1,0 +1,23 @@
+{
+  "name": "netnoise-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend di netnoise: si collega al collector via WebSocket",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^4.5.2",
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.11"
+  }
+}
