@@ -1,4 +1,4 @@
-import { FlowState, type ServerMsg, type Throughput } from '#protocol';
+import { FlowState, type FlowInfo, type ServerMsg, type Throughput } from '#protocol';
 
 export type ConnStatus = 'idle' | 'connecting' | 'open' | 'closed';
 
@@ -9,6 +9,15 @@ export interface LoggedMsg {
   msg: ServerMsg;
 }
 
+/** Un flusso con le sue velocità correnti (byte/s, rispetto al NAS). */
+export interface FlowRow extends FlowInfo {
+  rateIn: number;
+  rateOut: number;
+}
+
+/** Ogni quanto al massimo si ricostruisce la tabella delle connessioni. */
+const ROWS_THROTTLE_MS = 250;
+
 export interface Summary {
   node: string;
   flows: number;
@@ -17,13 +26,15 @@ export interface Summary {
 
 /**
  * Connessione al WebSocket del collector con riconnessione automatica.
- * Tiene gli ultimi `max` messaggi e lo stato ricostruito con FlowState.
+ * Tiene gli ultimi `max` messaggi, lo stato ricostruito con FlowState
+ * e la tabella delle connessioni con le velocità correnti.
  */
 export function useNetnoiseSocket(max = 300) {
   const status = ref<ConnStatus>('idle');
   const error = ref('');
   const paused = ref(false);
   const messages = shallowRef<LoggedMsg[]>([]);
+  const flows = shallowRef<FlowRow[]>([]);
   const summary = shallowRef<Summary>({ node: '', flows: 0, total: null });
   const msgPerSec = ref(0);
   const bytesPerSec = ref(0);
@@ -37,6 +48,7 @@ export function useNetnoiseSocket(max = 300) {
   let seq = 0;
   let windowMsgs = 0;
   let windowBytes = 0;
+  let rowsTimer: ReturnType<typeof setTimeout> | undefined;
 
   const meter = setInterval(() => {
     msgPerSec.value = windowMsgs;
@@ -44,6 +56,20 @@ export function useNetnoiseSocket(max = 300) {
     windowMsgs = 0;
     windowBytes = 0;
   }, 1000);
+
+  // i messaggi arrivano ogni 100 ms: la tabella si ricostruisce al massimo ogni ROWS_THROTTLE_MS
+  function scheduleRows(): void {
+    if (rowsTimer) return;
+    rowsTimer = setTimeout(() => {
+      rowsTimer = undefined;
+      const rows: FlowRow[] = [];
+      for (const f of state.flows.values()) {
+        const r = state.rates.get(f.id);
+        rows.push({ ...f, rateIn: r?.[1] ?? 0, rateOut: r?.[2] ?? 0 });
+      }
+      flows.value = rows;
+    }, ROWS_THROTTLE_MS);
+  }
 
   function connect(target: string): void {
     url = target;
@@ -98,6 +124,7 @@ export function useNetnoiseSocket(max = 300) {
       summary.value = { node: state.node, flows: state.flows.size, total: state.total };
 
       if (paused.value) return;
+      scheduleRows();
       const next = messages.value.length >= max ? messages.value.slice(1) : messages.value.slice();
       next.push({ seq: ++seq, at: Date.now(), bytes: raw.length, msg });
       messages.value = next;
@@ -128,11 +155,12 @@ export function useNetnoiseSocket(max = 300) {
 
   onScopeDispose(() => {
     clearInterval(meter);
+    clearTimeout(rowsTimer);
     disconnect();
   });
 
   return {
-    status, error, paused, messages, summary, msgPerSec, bytesPerSec,
+    status, error, paused, messages, flows, summary, msgPerSec, bytesPerSec,
     connect, disconnect, resync, clear,
   };
 }

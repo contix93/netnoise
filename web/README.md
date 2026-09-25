@@ -5,10 +5,14 @@ i messaggi `hello`/`tick` e lo stato ricostruito con `FlowState`
 (importato da [../collector/src/protocol.ts](../collector/src/protocol.ts) tramite l'alias `#protocol`).
 
 - **In alto**: stato della connessione, nome del NAS, flussi attivi, throughput in/out, messaggi/s.
-- **A sinistra**: gli ultimi 300 messaggi, il più recente in alto, con un riassunto.
-- **A destra**: il JSON del messaggio selezionato; con "segui l'ultimo" si aggiorna da solo.
-- **Pausa** blocca l'elenco (i contatori continuano), **Resync** chiede un nuovo `hello`,
+- **Scheda Messaggi**: a sinistra gli ultimi 300 messaggi, il più recente in alto, con un riassunto;
+  a destra il JSON del messaggio selezionato (con "segui l'ultimo" si aggiorna da solo).
   **Svuota** pulisce l'elenco; filtro per tipo e "nascondi tick vuoti".
+- **Scheda Connessioni** (`/#connessioni`): una riga per ogni flusso aperto con peer, verso,
+  servizio, porta, byte/s ricevuti e inviati dal NAS, totale ed età. Ordinabile cliccando le
+  intestazioni (di default per totale, come `rates`), filtrabile per testo o "solo con traffico".
+  Le connessioni appena nate lampeggiano, quelle senza traffico sono attenuate.
+- **Pausa** congela elenco e tabella (i contatori in alto continuano), **Resync** chiede un nuovo `hello`.
 - Se la connessione cade riprova da sola (fino a 30 s tra un tentativo e l'altro);
   con token sbagliato (codice `4401`) si ferma e lo segnala.
 

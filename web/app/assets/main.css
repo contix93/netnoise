@@ -14,6 +14,9 @@
   --j-str: #1f7a3a;
   --j-num: #b35900;
   --j-lit: #2f6fdd;
+  --row-border: #eef0f3;
+  --fresh: #fff2c2;
+  --bar: rgba(47, 111, 221, .14);
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -33,6 +36,9 @@
     --j-str: #8fd49a;
     --j-num: #f0a86a;
     --j-lit: #6ea2ff;
+    --row-border: #1e232a;
+    --fresh: #4a3d12;
+    --bar: rgba(110, 162, 255, .18);
   }
 }
 
@@ -92,6 +98,10 @@ button[type="submit"] { background: var(--accent); border-color: var(--accent); 
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .toolbar label { display: flex; align-items: center; gap: 4px; color: var(--muted); }
 .toolbar .count { margin-left: auto; color: var(--muted); font-family: var(--mono); }
+
+.tabs { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.tabs button { border: 0; background: transparent; }
+.tabs button[aria-selected="true"] { background: var(--active); color: var(--accent); }
 
 .panes {
   flex: 1;

@@ -5,7 +5,12 @@ const STORAGE_KEY = 'netnoise:conn';
 
 const config = useRuntimeConfig();
 const socket = useNetnoiseSocket();
-const { status, error, paused, messages, summary, msgPerSec, bytesPerSec } = socket;
+const { status, error, paused, messages, flows, summary, msgPerSec, bytesPerSec } = socket;
+
+type View = 'messages' | 'flows';
+// la scheda si può aprire dall'indirizzo: http://nas:3100/#connessioni
+const view = ref<View>(location.hash === '#connessioni' ? 'flows' : 'messages');
+watch(view, v => history.replaceState(null, '', v === 'flows' ? '#connessioni' : location.pathname + location.search));
 
 // --- indirizzo e token -------------------------------------------------------
 
@@ -15,7 +20,8 @@ function defaultUrl(): string {
   return `${proto}//${location.host}/ws`;
 }
 
-function loadSaved(): { url?: string; token?: string } {
+/** `base` è l'indirizzo predefinito al momento del salvataggio. */
+function loadSaved(): { url?: string; token?: string; base?: string } {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
   } catch {
@@ -24,8 +30,9 @@ function loadSaved(): { url?: string; token?: string } {
 }
 
 const saved = loadSaved();
-const wsUrl = ref(saved.url || defaultUrl());
-// il token può arrivare dall'indirizzo della pagina: http://nas:8081/?token=...
+// l'indirizzo salvato vale solo finché non cambia quello predefinito (NUXT_PUBLIC_WS_URL o host della pagina)
+const wsUrl = ref((saved.base === defaultUrl() && saved.url) || defaultUrl());
+// il token può arrivare dall'indirizzo della pagina: http://nas:3100/?token=...
 const token = ref(new URLSearchParams(location.search).get('token') ?? saved.token ?? '');
 
 function fullUrl(): string {
@@ -36,7 +43,7 @@ function fullUrl(): string {
 
 function connect(): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ url: wsUrl.value, token: token.value }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ url: wsUrl.value, token: token.value, base: defaultUrl() }));
   } catch { /* storage non disponibile */ }
   try {
     socket.connect(fullUrl());
@@ -125,20 +132,28 @@ const perSec = (n: number) => `${formatBytes(n)}/s`;
     <p v-if="error" class="error">{{ error }}</p>
 
     <div class="toolbar">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" :aria-selected="view === 'messages'" @click="view = 'messages'">Messaggi</button>
+        <button type="button" role="tab" :aria-selected="view === 'flows'" @click="view = 'flows'">Connessioni ({{ flows.length }})</button>
+      </div>
       <button type="button" @click="paused = !paused">{{ paused ? 'Riprendi' : 'Pausa' }}</button>
       <button type="button" :disabled="status !== 'open'" @click="socket.resync()">Resync</button>
-      <button type="button" @click="socket.clear()">Svuota</button>
-      <select v-model="filter">
-        <option value="all">tutti</option>
-        <option value="hello">hello</option>
-        <option value="tick">tick</option>
-      </select>
-      <label><input v-model="hideEmpty" type="checkbox"> nascondi tick vuoti</label>
-      <label><input v-model="follow" type="checkbox"> segui l'ultimo</label>
-      <span class="count">{{ visible.length }} / {{ messages.length }}</span>
+      <template v-if="view === 'messages'">
+        <button type="button" @click="socket.clear()">Svuota</button>
+        <select v-model="filter">
+          <option value="all">tutti</option>
+          <option value="hello">hello</option>
+          <option value="tick">tick</option>
+        </select>
+        <label><input v-model="hideEmpty" type="checkbox"> nascondi tick vuoti</label>
+        <label><input v-model="follow" type="checkbox"> segui l'ultimo</label>
+        <span class="count">{{ visible.length }} / {{ messages.length }}</span>
+      </template>
     </div>
 
-    <main class="panes">
+    <FlowTable v-if="view === 'flows'" :rows="flows" />
+
+    <main v-else class="panes">
       <ol class="list">
         <li
           v-for="l in rows"
