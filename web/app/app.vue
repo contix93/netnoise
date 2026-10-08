@@ -7,10 +7,14 @@ const config = useRuntimeConfig();
 const socket = useNetnoiseSocket();
 const { status, error, paused, messages, flows, summary, msgPerSec, bytesPerSec } = socket;
 
-type View = 'messages' | 'flows';
-// la scheda si può aprire dall'indirizzo: http://nas:3100/#connessioni
-const view = ref<View>(location.hash === '#connessioni' ? 'flows' : 'messages');
-watch(view, v => history.replaceState(null, '', v === 'flows' ? '#connessioni' : location.pathname + location.search));
+type View = 'messages' | 'flows' | 'sound';
+// le schede si possono aprire dall'indirizzo: http://nas:3100/#connessioni, http://nas:3100/#suono
+const HASHES: Partial<Record<View, string>> = { flows: '#connessioni', sound: '#suono' };
+const view = ref<View>((Object.keys(HASHES) as View[]).find(v => HASHES[v] === location.hash) ?? 'messages');
+watch(view, v => history.replaceState(null, '', HASHES[v] ?? location.pathname + location.search));
+// la scheda Suono, una volta aperta, resta montata: la musica continua anche nelle altre schede
+const soundOpened = ref(view.value === 'sound');
+watch(view, v => { if (v === 'sound') soundOpened.value = true; });
 
 // --- indirizzo e token -------------------------------------------------------
 
@@ -135,6 +139,7 @@ const perSec = (n: number) => `${formatBytes(n)}/s`;
       <div class="tabs" role="tablist">
         <button type="button" role="tab" :aria-selected="view === 'messages'" @click="view = 'messages'">Messaggi</button>
         <button type="button" role="tab" :aria-selected="view === 'flows'" @click="view = 'flows'">Connessioni ({{ flows.length }})</button>
+        <button type="button" role="tab" :aria-selected="view === 'sound'" @click="view = 'sound'">Suono</button>
       </div>
       <button type="button" @click="paused = !paused">{{ paused ? 'Riprendi' : 'Pausa' }}</button>
       <button type="button" :disabled="status !== 'open'" @click="socket.resync()">Resync</button>
@@ -153,7 +158,9 @@ const perSec = (n: number) => `${formatBytes(n)}/s`;
 
     <FlowTable v-if="view === 'flows'" :rows="flows" />
 
-    <main v-else class="panes">
+    <SoundView v-if="soundOpened" v-show="view === 'sound'" :flows="flows" :total="summary.total" />
+
+    <main v-if="view === 'messages'" class="panes">
       <ol class="list">
         <li
           v-for="l in rows"

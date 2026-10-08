@@ -12,9 +12,62 @@ i messaggi `hello`/`tick` e lo stato ricostruito con `FlowState`
   servizio, porta, byte/s ricevuti e inviati dal NAS, totale ed età. Ordinabile cliccando le
   intestazioni (di default per totale, come `rates`), filtrabile per testo o "solo con traffico".
   Le connessioni appena nate lampeggiano, quelle senza traffico sono attenuate.
+- **Scheda Suono** (`/#suono`): il traffico diventa musica con [Strudel](https://strudel.cc).
+  A sinistra l'editor Strudel con il codice generato, a destra le note che stanno suonando
+  (una corsia per strumento, pieno = in, contorno = out) e gli strati attivi.
+  **▶ Suona** avvia l'audio (serve un clic: il browser non lo permette da solo).
+  Dettagli sotto.
 - **Pausa** congela elenco e tabella (i contatori in alto continuano), **Resync** chiede un nuovo `hello`.
 - Se la connessione cade riprova da sola (fino a 30 s tra un tentativo e l'altro);
   con token sbagliato (codice `4401`) si ferma e lo segnala.
+
+## Suono
+
+A ogni ciclo (una battuta) [app/utils/compose.ts](app/utils/compose.ts) riscrive il codice Strudel
+dallo stato dei flussi e l'editor lo valuta. Solo i flussi con traffico suonano; quelli con lo
+stesso tipo di servizio e verso formano uno strato (`web_out:`, `file_in:`, …).
+
+Le regole sono le stesse in ogni stile:
+
+| Cosa | Diventa |
+| --- | --- |
+| servizio | strumento, scelto dallo stile per ogni famiglia: web, file (smb, nfs, afp, rsync), streaming (plex, jellyfin), controllo (dns, mdns, ntp…), tunnel (ssh, vpn), posta e db, p2p (torrent), ping (icmp), altro |
+| verso | `in` un'ottava sotto e a sinistra, `out` un'ottava sopra e a destra |
+| byte/s | note per battuta e volume (scala logaritmica: 100 B/s → minimo, 10 MB/s → massimo) |
+| peer e porta | le note: ogni flusso ha un grado della scala stabile finché vive |
+| ricevuti vs inviati | modo della scala: ogni stile ne ha tre (si riceve di più / equilibrio / si invia di più) |
+| totale | ritmo e bordone, scritti dallo stile |
+| connessioni nuove | un campanello ciascuna, per una battuta |
+
+Gli stili sono in [app/utils/styles.ts](app/utils/styles.ts) e si scelgono dalla select **stile**:
+
+| Stile | bpm | Suono |
+| --- | --- | --- |
+| Synth | 110 | il primo: pianoforte, basso sawtooth, pad supersaw, cassa e clap |
+| 8bit | 140 | chiptune: onde quadre, basso triangolo, rumore sgranato, arpeggi |
+| Techno | 128 | cassa in quattro, basso acid, stab, charleston in sedicesimi, modo frigio quando si scarica |
+| Rock | 124 | power chord distorti, basso elettrico, organo, batteria che si infittisce col traffico, pentatonica |
+| Melodico | 76 | ballata: pianoforte, archi, vibrafono, carillon su un giro I–vi–IV–V |
+| Lirico | 66 | coro, violoncelli, archi, corni, arpa e timpani, minore armonica |
+| Ambient | 60 | niente batteria: pad lunghi, eco, riverbero |
+
+Cambiando stile il bpm torna a quello dello stile; stile, tonalità e bpm restano salvati nel browser.
+Per aggiungere uno stile basta un nuovo oggetto `Style` in `STYLES`. Gli strumenti `gm_*`
+(soundfont General MIDI) hanno un'estensione limitata: sopra non suonano o danno
+`Unable to decode audio data`, quindi tieni bassa l'ottava (vedi il commento su `octave`).
+
+Scrivere nell'editor ferma la composizione automatica: da lì suona il tuo codice
+(Ctrl+Invio per valutarlo, Ctrl+. per fermarlo) e **Riprendi dal traffico** torna al codice generato.
+Nel tuo codice puoi usare i segnali `netIn`, `netOut` e `netTotal` (0..1, aggiornati di continuo):
+
+```js
+note("c2 eb2 g2").s("sawtooth").lpf(netIn.range(200, 4000)).gain(netTotal.range(.2, .8))
+```
+
+La musica continua anche nelle altre schede. Pianoforte, batteria e strumenti `gm_*` si scaricano
+da GitHub al primo uso (le prime note di uno strumento nuovo possono mancare):
+senza internet suonano solo i sintetizzatori.
+Strudel è AGPL-3.0: tenerlo per uso personale sul NAS va bene, ridistribuire la build no senza i sorgenti.
 
 ## Sviluppo (sul Mac)
 
