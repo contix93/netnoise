@@ -25,10 +25,13 @@ const saved = loadSaved();
 
 const styleKey = ref(styleByKey(saved.style ?? '').key);
 const style = computed(() => styleByKey(styleKey.value));
-const root = ref(ROOTS.includes(saved.root ?? '') ? saved.root! : 'C');
+const root = ref(ROOTS.includes(saved.root ?? '') ? saved.root! : style.value.root);
 const bpm = ref(saved.bpm && saved.bpm >= 40 && saved.bpm <= 200 ? saved.bpm : style.value.bpm);
-// ogni stile ha il suo tempo: cambiandolo si riparte da quello (poi si può spostare)
-watch(styleKey, () => { bpm.value = style.value.bpm; });
+// ogni stile ha il suo tempo e la sua tonalità: cambiandolo si riparte da quelli (poi si possono spostare)
+watch(styleKey, () => {
+  bpm.value = style.value.bpm;
+  root.value = style.value.root;
+});
 watch([styleKey, root, bpm], () => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ style: styleKey.value, root: root.value, bpm: bpm.value }));

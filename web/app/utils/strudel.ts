@@ -54,6 +54,10 @@ export async function createStrudel(opts: StrudelOptions): Promise<StrudelHandle
     import('@strudel/transpiler'),
   ]);
 
+  // fuori da https/localhost il browser non espone audioWorklet: supersaw, crush, shape, coarse, distort restano muti
+  if (!window.isSecureContext) {
+    opts.onWarning('pagina non in https: supersaw ed effetti crush/shape/distort non suonano (servono https o localhost)');
+  }
   webaudio.initAudioOnFirstClick();
 
   const levels = { in: 0, out: 0, total: 0 };

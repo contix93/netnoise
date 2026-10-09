@@ -41,17 +41,16 @@ Le regole sono le stesse in ogni stile:
 
 Gli stili sono in [app/utils/styles.ts](app/utils/styles.ts) e si scelgono dalla select **stile**:
 
-| Stile | bpm | Suono |
-| --- | --- | --- |
-| Synth | 110 | il primo: pianoforte, basso sawtooth, pad supersaw, cassa e clap |
-| 8bit | 140 | chiptune: onde quadre, basso triangolo, rumore sgranato, arpeggi |
-| Techno | 128 | cassa in quattro, basso acid, stab, charleston in sedicesimi, modo frigio quando si scarica |
-| Rock | 124 | power chord distorti, basso elettrico, organo, batteria che si infittisce col traffico, pentatonica |
-| Melodico | 76 | ballata: pianoforte, archi, vibrafono, carillon su un giro I–vi–IV–V |
-| Lirico | 66 | coro, violoncelli, archi, corni, arpa e timpani, minore armonica |
-| Ambient | 60 | niente batteria: pad lunghi, eco, riverbero |
+| Stile | bpm | Tonalità | Suono |
+| --- | --- | --- | --- |
+| Synth | 110 | C | il primo: pianoforte, basso sawtooth, pad supersaw, cassa e clap |
+| 8bit | 140 | D | chiptune: onde quadre, basso triangolo, rumore sgranato, arpeggi |
+| Techno | 128 | F | cassa in quattro, basso acid, stab, charleston in sedicesimi, modo frigio quando si scarica |
+| Bass | 100 | G | sub sempre acceso, basso reese distorto che fa wobble col traffico, break spezzati, amen break, zap e blip FM |
+| Acid | 124 | E | acid house: linea 303 risonante che si apre col traffico, cassa in quattro, clap e cowbell |
+| Trance | 138 | A | basso in levare, accordi supersaw a sedicesimi che si aprono col traffico, arpeggi ed eco |
 
-Cambiando stile il bpm torna a quello dello stile; stile, tonalità e bpm restano salvati nel browser.
+Cambiando stile bpm e tonalità tornano a quelli dello stile; stile, tonalità e bpm restano salvati nel browser.
 Per aggiungere uno stile basta un nuovo oggetto `Style` in `STYLES`. Gli strumenti `gm_*`
 (soundfont General MIDI) hanno un'estensione limitata: sopra non suonano o danno
 `Unable to decode audio data`, quindi tieni bassa l'ottava (vedi il commento su `octave`).

@@ -47,6 +47,8 @@ export interface Style {
   label: string;
   description: string;
   bpm: number;
+  /** tonica di default (C, C#, … B): cambiando stile si riparte da questa */
+  root: string;
   /** modo della scala quando si riceve di più, in equilibrio, quando si invia di più (nomi tonal, ':' al posto degli spazi) */
   modes: [string, string, string];
   voices: Record<FamilyKey, Voice>;
@@ -71,6 +73,7 @@ const synth: Style = {
   label: 'Synth',
   description: 'pianoforte, basso sawtooth e pad supersaw su cassa e clap',
   bpm: 110,
+  root: 'C',
   modes: ['minor', 'dorian', 'major'],
   voices: {
     web: { instrument: 'pianoforte', kind: 'melody', octave: 3, gain: 0.7, steps: 8, tail: () => '.s("piano").room(.3)' },
@@ -115,6 +118,7 @@ const chip: Style = {
   label: '8bit',
   description: 'chiptune da console: onde quadre, basso triangolo, rumore sgranato, arpeggi veloci',
   bpm: 140,
+  root: 'D',
   modes: ['minor', 'mixolydian', 'major'],
   voices: {
     web: { instrument: 'lead square', kind: 'melody', octave: 4, gain: 0.45, steps: 16, maxPulses: 12,
@@ -160,6 +164,7 @@ const techno: Style = {
   label: 'Techno',
   description: 'cassa in quattro, basso acid risonante, stab di supersaw, charleston in sedicesimi',
   bpm: 128,
+  root: 'F',
   modes: ['phrygian', 'minor', 'dorian'],
   voices: {
     web: { instrument: 'stab supersaw', kind: 'chord', octave: 3, gain: 0.4, steps: 8, maxPulses: 4,
@@ -197,175 +202,177 @@ const techno: Style = {
   chime: { octave: 6, tail: '.s("sine").decay(.1).sustain(0).delay(.5).delayfeedback(.5).gain(.3)' },
 };
 
-// --- rock: chitarre distorte, basso, batteria in levare --------------------------
+// --- bass: sub sempre acceso, reese distorto che fa wobble, break spezzati a 100 ---------------
 
-const ROCK_KICK = ['bd ~ ~ ~ ~ ~ ~ ~', 'bd ~ ~ ~ bd ~ ~ ~', 'bd ~ ~ bd ~ ~ bd ~', 'bd ~ bd ~ bd ~ bd bd'];
-const ROCK_SNARE = ['~ ~ sd ~', '~ sd ~ sd', '~ sd ~ [sd sd]', '~ sd ~ [sd sd sd sd]'];
+// due passi: cassa sull'1 e sul 3-e, rullante sul 2 e sul 4; con più traffico si aggiungono colpi fantasma
+const BASS_KICK = [
+  'bd ~ ~ ~ ~ ~ ~ ~ ~ ~ bd ~ ~ ~ ~ ~',
+  'bd ~ bd ~ ~ ~ ~ ~ ~ ~ bd ~ ~ ~ ~ ~',
+  'bd ~ bd ~ ~ ~ ~ ~ ~ bd bd ~ ~ ~ ~ bd',
+];
+const BASS_SNARE = [
+  '~ ~ ~ ~ sd ~ ~ ~ ~ ~ ~ ~ sd ~ ~ ~',
+  '~ ~ ~ ~ sd ~ ~ sd ~ ~ ~ ~ sd ~ ~ ~',
+  '~ ~ ~ ~ sd ~ ~ sd ~ sd ~ ~ sd ~ ~ sd',
+];
+// cicli di wobble per battuta: più traffico, più veloce
+const BASS_WOBBLE = [1, 2, 4, 8];
 
-const rock: Style = {
-  key: 'rock',
-  label: 'Rock',
-  description: 'power chord di chitarra distorta, basso elettrico, organo e batteria con rullante in levare',
-  bpm: 124,
-  modes: ['minor:pentatonic', 'dorian', 'mixolydian'],
+const bass: Style = {
+  key: 'bass',
+  label: 'Bass',
+  description: 'sub sempre acceso, basso reese distorto che fa wobble, break spezzati lenti, zap e blip FM',
+  bpm: 100,
+  root: 'G',
+  modes: ['phrygian', 'minor', 'dorian'],
   voices: {
-    web: { instrument: 'chitarra distorta (power chord)', kind: 'melody', octave: 2, gain: 0.8, steps: 8,
-      tail: () => '.superimpose(x => x.transpose(7)).s("gm_distortion_guitar").clip(.9)' },
-    file: { instrument: 'basso elettrico', kind: 'melody', octave: 1, gain: 0.9, steps: 8,
-      tail: () => '.s("gm_electric_bass_pick").clip(.9)' },
-    stream: { instrument: 'organo rock', kind: 'chord', octave: 3, gain: 0.5, steps: 2,
-      tail: () => '.s("gm_rock_organ").room(.3)' },
-    ctrl: { instrument: 'charleston', kind: 'perc', sound: 'hh', octave: 0, gain: 0.45, steps: 8,
-      tail: (_, d) => (d === 'in' ? '' : '.speed(1.2)') },
-    tunnel: { instrument: 'chitarra solista', kind: 'melody', octave: 4, gain: 0.6, steps: 8, maxPulses: 6,
-      tail: () => '.s("gm_overdriven_guitar").delay(.2)' },
-    data: { instrument: 'chitarra stoppata', kind: 'melody', octave: 3, gain: 0.6, steps: 16, maxPulses: 10,
-      tail: () => '.s("gm_electric_guitar_muted")' },
-    p2p: { instrument: 'piatto crash', kind: 'perc', sound: 'cr', octave: 0, gain: 0.35, steps: 8, maxPulses: 2,
+    web: { instrument: 'stab scuro', kind: 'chord', octave: 2, gain: 0.4, steps: 8, maxPulses: 3,
+      tail: l => `.s("sawtooth").decay(.15).sustain(0).lpf(${Math.round(6 + l * 14) * 100}).shape(.3)` },
+    file: { instrument: 'basso growl', kind: 'melody', octave: 1, gain: 0.6, steps: 16, maxPulses: 8,
+      tail: l => `.s("sawtooth").lpf(sine.fast(8).range(200, ${Math.round(6 + l * 24) * 100})).lpq(10).decay(.12).sustain(.4).shape(.5)` },
+    stream: { instrument: 'pad scuro', kind: 'chord', octave: 2, gain: 0.3, steps: 1,
+      tail: () => '.s("sawtooth").attack(1).release(2).lpf(500).room(.6)' },
+    ctrl: { instrument: 'charleston', kind: 'perc', sound: 'hh', octave: 0, gain: 0.35, steps: 16, maxPulses: 14,
+      tail: (_, d) => `.speed(${d === 'in' ? 1.2 : 1.5}).hpf(7000)` },
+    tunnel: { instrument: 'rimshot', kind: 'perc', sound: 'rim', octave: 0, gain: 0.4, steps: 16, maxPulses: 5,
       tail: () => '' },
-    ping: { instrument: 'ride', kind: 'perc', sound: 'rd', octave: 0, gain: 0.3, steps: 8, maxPulses: 4,
-      tail: () => '' },
-    other: { instrument: 'chitarra pulita', kind: 'melody', octave: 3, gain: 0.5, steps: 8,
-      tail: () => '.s("gm_electric_guitar_clean").room(.2)' },
+    data: { instrument: 'blip FM', kind: 'melody', octave: 4, gain: 0.3, steps: 16, maxPulses: 6,
+      tail: () => '.s("sine").fm(4).fmh(2.01).decay(.08).sustain(0)' },
+    p2p: { instrument: 'rumore filtrato', kind: 'perc', sound: 'white', octave: 0, gain: 0.2, steps: 16, maxPulses: 8,
+      tail: l => `.decay(.06).sustain(0).hpf(${Math.round(20 + l * 60) * 100})` },
+    ping: { instrument: 'zap laser', kind: 'melody', octave: 4, gain: 0.3, steps: 4, maxPulses: 2,
+      tail: () => '.s("square").penv(24).pdecay(.08).decay(.12).sustain(0).lpf(3000)' },
+    other: { instrument: 'square corta', kind: 'melody', octave: 3, gain: 0.3, steps: 16, maxPulses: 6,
+      tail: () => '.s("square").decay(.05).sustain(0).lpf(1500)' },
   },
   rhythm: c => {
     const lines = [
-      '// giro di accordi i–i–VI–VII: il volume segue il traffico totale (netTotal 0..1)',
-      `drone: n("<0 0 -3 -2>").scale("${c.scale(2)}").superimpose(x => x.transpose(7))`
-        + `.s("gm_overdriven_guitar").gain(netTotal.range(.1, .5)).color("${c.color.drone}")`,
+      '// sub: una nota lunga per battuta, sempre accesa, più forte col traffico totale (netTotal 0..1)',
+      `drone: n("<0 0 -2 -3>").scale("${c.scale(1)}").s("sine").release(.1).lpf(180)`
+        + `.gain(netTotal.range(.7, 1)).color("${c.color.drone}")`,
     ];
     if (c.total === 0) return lines;
-    lines.push('', '// batteria: cassa più fitta con più byte ricevuti, rullante più fitto con più byte inviati');
-    lines.push(`kick: s("${pick(ROCK_KICK, c.in)}").gain(.85).color("${c.color.kick}")`);
-    lines.push(`snare: s("${pick(ROCK_SNARE, c.out)}").gain(.6).color("${c.color.snare}")`);
-    if (c.total > 0.5) lines.push(`crash: s("<cr ~ ~ ~>").gain(.35).color("${c.color.hat}")`);
+    const wobble = pick(BASS_WOBBLE, c.total);
+    const open = Math.round(8 + c.in * 22) * 100;
+    lines.push(
+      '',
+      `// reese in sedicesimi: il filtro oscilla ${wobble} ${wobble === 1 ? 'volta' : 'volte'} per battuta (traffico totale), si apre fino a ${open} Hz (byte ricevuti)`,
+      `reese: n("[0 0 ~ 0] [0 ~ 0 0] [<3 -2> <3 -2> ~ <3 -2>] [0 ~ 0 ~]").scale("${c.scale(1)}")`
+        + `.s("supersaw").detune(.4).unison(4).lpf(sine.fast(${wobble}).range(150, ${open})).lpq(8)`
+        + `.shape(.5).gain(1.3).color("${c.color.drone}")`,
+      '',
+      '// due passi: cassa più fitta con più byte ricevuti, rullante più fitto con più byte inviati',
+      `kick: s("${pick(BASS_KICK, c.in)}").shape(.3).gain(.95).color("${c.color.kick}")`,
+      `snare: s("${pick(BASS_SNARE, c.out)}").gain(.6).color("${c.color.snare}")`,
+    );
+    if (c.total > 0.3) {
+      lines.push('', '// amen break tagliato in sedicesimi, sotto la batteria: più traffico, più forte');
+      lines.push(`amen: s("brk").fit().chop(16).hpf(400).gain(${num(0.15 + c.total * 0.3)}).color("${c.color.hat}")`);
+    }
     return lines;
   },
-  chime: { octave: 4, tail: '.s("gm_electric_guitar_clean").delay(.3).gain(.5)' },
+  chime: { octave: 5, tail: '.s("square").fm(2).fmh(3).decay(.1).sustain(0).lpf(3000).gain(.3)' },
 };
 
-// --- melodico: ballata con pianoforte e archi ----------------------------------
+// --- acid: basso 303 risonante che si apre col traffico, cassa in quattro, cowbell --------
 
-const melodic: Style = {
-  key: 'melodico',
-  label: 'Melodico',
-  description: 'ballata lenta: pianoforte, archi, vibrafono e carillon su un giro I–vi–IV–V',
-  bpm: 76,
-  modes: ['minor', 'major', 'lydian'],
+const acid: Style = {
+  key: 'acid',
+  label: 'Acid',
+  description: 'acid house: linea 303 risonante che si apre col traffico, cassa in quattro, clap e cowbell',
+  bpm: 124,
+  root: 'E',
+  modes: ['phrygian', 'minor', 'mixolydian'],
   voices: {
-    web: { instrument: 'pianoforte', kind: 'melody', octave: 4, gain: 0.75, steps: 8, maxPulses: 6,
-      tail: () => '.s("piano").room(.5)' },
-    file: { instrument: 'contrabbasso', kind: 'melody', octave: 2, gain: 0.8, steps: 4,
-      tail: () => '.s("gm_acoustic_bass")' },
-    stream: { instrument: 'archi', kind: 'chord', octave: 3, gain: 0.5, steps: 1,
-      tail: () => '.s("gm_string_ensemble_1").attack(.5).release(2).room(.5)' },
-    // il campione "sh" di uzu-drumkit è un wav float32 che Chrome non sempre decodifica: shaker sintetico
-    ctrl: { instrument: 'shaker', kind: 'perc', sound: 'white', octave: 0, gain: 0.2, steps: 16, maxPulses: 8,
-      tail: () => '.decay(.04).sustain(0).hpf(5000)' },
-    tunnel: { instrument: 'vibrafono', kind: 'melody', octave: 2, gain: 0.55, steps: 8, maxPulses: 5,
-      tail: () => '.s("gm_vibraphone").room(.4)' },
-    data: { instrument: 'carillon', kind: 'melody', octave: 4, gain: 0.5, steps: 8, maxPulses: 5,
-      tail: () => '.s("gm_music_box").room(.5)' },
-    p2p: { instrument: 'kalimba', kind: 'melody', octave: 4, gain: 0.5, steps: 8, maxPulses: 6,
-      tail: () => '.s("gm_kalimba")' },
-    ping: { instrument: 'glockenspiel', kind: 'melody', octave: 4, gain: 0.4, steps: 4, maxPulses: 2,
-      tail: () => '.s("gm_glockenspiel").delay(.4)' },
-    other: { instrument: 'piano elettrico', kind: 'melody', octave: 3, gain: 0.55, steps: 8, maxPulses: 5,
-      tail: () => '.s("gm_epiano1").room(.3)' },
+    web: { instrument: 'lead acid', kind: 'melody', octave: 3, gain: 0.4, steps: 16, maxPulses: 10,
+      tail: l => `.s("sawtooth").lpf(${Math.round(4 + l * 16) * 100}).lpq(18).lpenv(3).lpdecay(.12).decay(.15).sustain(.2).shape(.2)` },
+    file: { instrument: 'basso square risonante', kind: 'melody', octave: 2, gain: 0.5, steps: 16, maxPulses: 8,
+      tail: l => `.s("square").lpf(${Math.round(3 + l * 10) * 100}).lpq(15).lpenv(4).lpdecay(.1).decay(.12).sustain(0)` },
+    stream: { instrument: 'stab di accordi', kind: 'chord', octave: 3, gain: 0.35, steps: 8, maxPulses: 3,
+      tail: () => '.s("sawtooth").decay(.12).sustain(0).lpf(1600).room(.4)' },
+    ctrl: { instrument: 'charleston', kind: 'perc', sound: 'hh', octave: 0, gain: 0.4, steps: 16, maxPulses: 12,
+      tail: (_, d) => `.speed(${d === 'in' ? 1 : 1.3})` },
+    tunnel: { instrument: 'cowbell', kind: 'perc', sound: 'cb', octave: 0, gain: 0.35, steps: 16, maxPulses: 4,
+      tail: () => '' },
+    data: { instrument: 'blip square', kind: 'melody', octave: 4, gain: 0.3, steps: 16, maxPulses: 6,
+      tail: () => '.s("square").lpf(1200).lpq(12).lpenv(3).decay(.08).sustain(0)' },
+    p2p: { instrument: 'rumore filtrato', kind: 'perc', sound: 'white', octave: 0, gain: 0.2, steps: 16, maxPulses: 8,
+      tail: l => `.decay(.05).sustain(0).hpf(${Math.round(30 + l * 50) * 100})` },
+    ping: { instrument: 'zap laser', kind: 'melody', octave: 4, gain: 0.3, steps: 4, maxPulses: 2,
+      tail: () => '.s("square").penv(24).pdecay(.08).decay(.12).sustain(0).lpf(3000)' },
+    other: { instrument: 'triangle corta', kind: 'melody', octave: 3, gain: 0.3, steps: 8,
+      tail: () => '.s("triangle").decay(.1).sustain(0)' },
   },
   rhythm: c => {
     const lines = [
-      '// giro I–vi–IV–V di pad: il volume segue il traffico totale (netTotal 0..1)',
-      `drone: n("<[0,2,4] [5,7,9] [3,5,7] [4,6,8]>").scale("${c.scale(3)}").s("gm_pad_warm")`
-        + `.attack(.6).release(2).gain(netTotal.range(.15, .5)).color("${c.color.drone}")`,
+      '// linea 303: il filtro si apre con il traffico totale (netTotal 0..1), sempre accesa',
+      `drone: n("0 ~ 0 7 ~ 0 3 ~ 0 ~ 5 0 ~ 7 0 ~").scale("${c.scale(1)}").s("sawtooth")`
+        + `.lpf(netTotal.range(300, 2500)).lpq(20).lpenv(3).lpdecay(.12).decay(.15).sustain(.3).shape(.3)`
+        + `.gain(.7).color("${c.color.drone}")`,
     ];
-    if (c.in > 0.1) lines.push('', '// cassa morbida = byte ricevuti, rimshot = byte inviati',
-      `kick: s("${c.in > 0.6 ? 'bd ~ ~ bd ~ ~ bd ~' : 'bd ~ ~ ~ ~ ~ bd ~'}").gain(${num(0.3 + c.in * 0.3)}).lpf(800).color("${c.color.kick}")`);
-    if (c.out > 0.1) lines.push(`rim: s("~ rim").gain(${num(0.2 + c.out * 0.25)}).room(.4).color("${c.color.snare}")`);
+    if (c.total === 0) return lines;
+    lines.push('', '// cassa in quattro (più forte con più byte ricevuti), clap = inviati, open hat = totale');
+    lines.push(`kick: s("bd*4").gain(${num(0.55 + c.in * 0.4)}).color("${c.color.kick}")`);
+    if (c.out > 0.1) lines.push(`clap: s("~ cp ~ cp").gain(${num(0.3 + c.out * 0.3)}).color("${c.color.snare}")`);
+    if (c.total > 0.3) lines.push(`openhat: s("[~ oh]*4").gain(${num(0.15 + c.total * 0.25)}).color("${c.color.hat}")`);
     return lines;
   },
-  chime: { octave: 5, tail: '.s("gm_celesta").room(.5).gain(.5)' },
+  chime: { octave: 5, tail: '.s("sawtooth").lpf(1500).lpq(15).lpenv(3).decay(.1).sustain(0).gain(.3)' },
 };
 
-// --- lirico: orchestra e coro ---------------------------------------------------
+// --- trance: basso in levare, accordi supersaw a sedicesimi che si aprono col traffico ---------
 
-const lyric: Style = {
-  key: 'lirico',
-  label: 'Lirico',
-  description: "coro e orchestra: voci, archi, corni, arpa e timpani, in un'aria lenta",
-  bpm: 66,
-  modes: ['harmonic:minor', 'minor', 'major'],
+const trance: Style = {
+  key: 'trance',
+  label: 'Trance',
+  description: 'basso in levare, accordi supersaw a sedicesimi che si aprono col traffico, arpeggi ed eco su giro i–VI–III–VII',
+  bpm: 138,
+  root: 'B',
+  modes: ['minor', 'harmonic:minor', 'dorian'],
   voices: {
-    web: { instrument: 'coro (soprani)', kind: 'melody', octave: 4, gain: 0.8, steps: 4,
-      tail: () => '.s("gm_choir_aahs").attack(.15).release(.8).room(.7)' },
-    file: { instrument: 'violoncelli', kind: 'melody', octave: 2, gain: 0.75, steps: 4,
-      tail: () => '.s("gm_cello").attack(.1).release(.6).room(.5)' },
-    stream: { instrument: 'archi', kind: 'chord', octave: 3, gain: 0.55, steps: 1,
-      tail: () => '.s("gm_string_ensemble_1").attack(.8).release(2).room(.7)' },
-    ctrl: { instrument: 'archi pizzicati', kind: 'melody', octave: 4, gain: 0.5, steps: 8, maxPulses: 6,
-      tail: () => '.s("gm_pizzicato_strings").room(.4)' },
-    tunnel: { instrument: 'corni', kind: 'melody', octave: 3, gain: 0.6, steps: 2,
-      tail: () => '.s("gm_french_horn").attack(.1).room(.6)' },
-    data: { instrument: 'flauto', kind: 'melody', octave: 5, gain: 0.55, steps: 8, maxPulses: 5,
-      tail: () => '.s("gm_flute").room(.5)' },
-    p2p: { instrument: 'arpa', kind: 'chord', octave: 4, gain: 0.5, steps: 2,
-      tail: () => '.arp("0 1 2 1 0 1 2 1").s("gm_orchestral_harp").room(.5)' },
-    ping: { instrument: 'campane tubolari', kind: 'melody', octave: 3, gain: 0.4, steps: 2, maxPulses: 1,
-      tail: () => '.s("gm_tubular_bells").room(.8)' },
-    other: { instrument: 'oboe', kind: 'melody', octave: 4, gain: 0.5, steps: 4,
-      tail: () => '.s("gm_oboe").room(.5)' },
+    web: { instrument: 'lead supersaw', kind: 'melody', octave: 4, gain: 0.4, steps: 16, maxPulses: 8,
+      tail: l => `.s("supersaw").detune(.25).unison(5).lpf(${Math.round(20 + l * 40) * 100}).decay(.2).sustain(.3).delay(.375).delayfeedback(.4).room(.4)` },
+    file: { instrument: 'pluck', kind: 'melody', octave: 4, gain: 0.4, steps: 16, maxPulses: 12,
+      tail: l => `.s("sawtooth").lpf(${Math.round(8 + l * 20) * 100}).lpenv(4).lpdecay(.08).decay(.1).sustain(0).delay(.375).delayfeedback(.3)` },
+    stream: { instrument: 'arpeggio', kind: 'chord', octave: 4, gain: 0.3, steps: 2,
+      tail: () => '.arp("[0 1 2 1]*4").s("triangle").decay(.1).sustain(0).delay(.375).delayfeedback(.4).room(.4)' },
+    ctrl: { instrument: 'charleston', kind: 'perc', sound: 'hh', octave: 0, gain: 0.35, steps: 16, maxPulses: 12,
+      tail: (_, d) => `.speed(${d === 'in' ? 1 : 1.3})` },
+    tunnel: { instrument: 'rullo di rullante', kind: 'perc', sound: 'sd', octave: 0, gain: 0.3, steps: 16, maxPulses: 8,
+      tail: () => '.room(.3)' },
+    data: { instrument: 'blip FM', kind: 'melody', octave: 5, gain: 0.25, steps: 16, maxPulses: 6,
+      tail: () => '.s("sine").fm(4).fmh(2.01).decay(.08).sustain(0).delay(.375)' },
+    p2p: { instrument: 'soffio di rumore', kind: 'perc', sound: 'white', octave: 0, gain: 0.15, steps: 4, maxPulses: 2,
+      tail: l => `.attack(.3).release(.5).hpf(${Math.round(20 + l * 60) * 100}).room(.6)` },
+    ping: { instrument: 'zap laser', kind: 'melody', octave: 4, gain: 0.3, steps: 4, maxPulses: 2,
+      tail: () => '.s("square").penv(24).pdecay(.08).decay(.12).sustain(0).lpf(3000).room(.4)' },
+    other: { instrument: 'pluck triangle', kind: 'melody', octave: 4, gain: 0.3, steps: 8,
+      tail: () => '.s("triangle").decay(.12).sustain(0).delay(.375)' },
   },
   rhythm: c => {
     const lines = [
-      '// coro di sottofondo, giro i–iv–V–i: il volume segue il traffico totale (netTotal 0..1)',
-      `drone: n("<[0,2,4] [3,5,7] [4,6,8] [0,2,4]>").scale("${c.scale(3)}").s("gm_voice_oohs")`
-        + `.attack(.8).release(2).room(.8).gain(netTotal.range(.15, .5)).color("${c.color.drone}")`,
+      '// basso in levare sul giro i–VI–III–VII: il filtro si apre con il traffico totale (netTotal 0..1)',
+      `drone: n("[~ 0 0 0]*4").add("<0 -2 2 -1>").scale("${c.scale(1)}").s("sawtooth").decay(.1).sustain(.4)`
+        + `.lpf(netTotal.range(300, 1500)).gain(.6).color("${c.color.drone}")`,
     ];
-    const timp = Math.round(c.in * 4);
-    if (timp || c.out > 0.4) lines.push('', '// timpani = byte ricevuti, piatti = byte inviati');
-    if (timp) lines.push(`timpani: n("0").euclid(${timp},8).scale("${c.scale(2)}").s("gm_timpani").gain(.7).room(.5).color("${c.color.kick}")`);
-    if (c.out > 0.4) lines.push(`piatti: s("<~ ~ ~ cr>").gain(${num(0.2 + c.out * 0.2)}).room(.8).color("${c.color.snare}")`);
+    if (c.total === 0) return lines;
+    lines.push(
+      '',
+      '// accordi supersaw a sedicesimi: più traffico, filtro più aperto e più volume',
+      `chords: n("<[0,2,4] [-2,0,2] [2,4,6] [-1,1,3]>").struct("x*16").scale("${c.scale(3)}")`
+        + `.s("supersaw").detune(.3).unison(5).decay(.12).sustain(.2).lpf(netTotal.range(600, 5000)).room(.5)`
+        + `.gain(${num(0.4 + c.total * 0.5)}).color("${c.color.drone}")`,
+      '',
+      '// cassa in quattro (più forte con più byte ricevuti), clap = inviati, open hat in levare',
+      `kick: s("bd*4").gain(${num(0.6 + c.in * 0.35)}).color("${c.color.kick}")`,
+      `openhat: s("[~ oh]*4").gain(${num(0.2 + c.total * 0.2)}).color("${c.color.hat}")`,
+    );
+    if (c.out > 0.1) lines.push(`clap: s("~ cp ~ cp").gain(${num(0.3 + c.out * 0.3)}).room(.3).color("${c.color.snare}")`);
     return lines;
   },
-  chime: { octave: 5, tail: '.s("gm_celesta").room(.7).gain(.5)' },
+  chime: { octave: 5, tail: '.s("supersaw").decay(.15).sustain(0).lpf(4000).room(.6).gain(.25)' },
 };
 
-// --- ambient: niente batteria, solo pad, eco e riverbero -----------------------------
-
-const ambient: Style = {
-  key: 'ambient',
-  label: 'Ambient',
-  description: 'niente batteria: pad lunghi, campane di vetro, eco e tanto riverbero',
-  bpm: 60,
-  modes: ['dorian', 'major', 'lydian'],
-  voices: {
-    web: { instrument: 'pad halo', kind: 'melody', octave: 4, gain: 0.5, steps: 2,
-      tail: () => '.s("gm_pad_halo").attack(.8).release(3).room(1)' },
-    file: { instrument: 'sub sine', kind: 'melody', octave: 2, gain: 0.6, steps: 2,
-      tail: () => '.s("sine").attack(.5).release(2)' },
-    stream: { instrument: 'pad caldo', kind: 'chord', octave: 3, gain: 0.45, steps: 1,
-      tail: () => '.s("gm_pad_warm").attack(1.5).release(3).room(1)' },
-    ctrl: { instrument: 'cristalli', kind: 'melody', octave: 3, gain: 0.3, steps: 4,
-      tail: () => '.s("gm_fx_crystal").room(1)' },
-    tunnel: { instrument: 'pad sweep', kind: 'melody', octave: 3, gain: 0.4, steps: 1,
-      tail: () => '.s("gm_pad_sweep").attack(1).release(3).room(1)' },
-    data: { instrument: 'campanelle', kind: 'melody', octave: 5, gain: 0.35, steps: 4,
-      tail: () => '.s("sine").decay(.6).sustain(0).delay(.6).delayfeedback(.6).room(1)' },
-    p2p: { instrument: 'pioggia', kind: 'perc', sound: 'pink', octave: 0, gain: 0.15, steps: 4, maxPulses: 2,
-      tail: () => '.attack(1).release(2).lpf(1200).room(1)' },
-    ping: { instrument: 'eco lontana', kind: 'melody', octave: 6, gain: 0.25, steps: 2, maxPulses: 1,
-      tail: () => '.s("sine").decay(1).sustain(0).delay(.7).delayfeedback(.7).room(1)' },
-    other: { instrument: 'triangle morbido', kind: 'melody', octave: 4, gain: 0.35, steps: 2,
-      tail: () => '.s("triangle").attack(.4).release(2).room(1)' },
-  },
-  rhythm: c => [
-    '// bordone che respira con il traffico (netIn apre il filtro, netTotal alza il volume)',
-    `drone: n("<[0,4] [-1,3]>/2").scale("${c.scale(2)}").s("sawtooth").attack(2).release(4)`
-      + `.lpf(netIn.range(200, 1400)).gain(netTotal.range(.08, .3)).room(1).color("${c.color.drone}")`,
-  ],
-  chime: { octave: 6, tail: '.s("sine").decay(.8).sustain(0).delay(.6).delayfeedback(.6).room(1).gain(.25)' },
-};
-
-export const STYLES: Style[] = [synth, chip, techno, rock, melodic, lyric, ambient];
+export const STYLES: Style[] = [synth, chip, techno, bass, acid, trance];
 
 export const styleByKey = (key: string): Style => STYLES.find(s => s.key === key) ?? synth;
